@@ -1,4 +1,5 @@
 import { useReducer, useState } from 'react';
+import AnalysisStage from './components/AnalysisStage';
 import InputStage from './components/InputStage';
 import MergeStage from './components/MergeStage';
 import OutputStage from './components/OutputStage';
@@ -25,11 +26,17 @@ import {
   type TransactionKind,
 } from './merge/history';
 
-type Stage = 'input' | 'merge' | 'output';
+type Stage = 'input' | 'analysis' | 'merge' | 'output';
 
 export default function App() {
   const [stage, setStage] = useState<Stage>('input');
   const [baseDoc, setBaseDoc] = useState<JsonValue | null>(null);
+  // 变更交叉分析的三份输入（从分析结果可继续进入合并流程）
+  const [analysisDocs, setAnalysisDocs] = useState<{
+    base: JsonValue;
+    ours: JsonValue;
+    theirs: JsonValue;
+  } | null>(null);
   const [mergeResult, setMergeResult] = useState<MergeResult | null>(null);
   // 决策历史（撤销/重做）在「冲突处理 ↔ 输出」两阶段之间持续保留
   const [history, dispatchHistory] = useReducer(resolutionHistoryReducer, {}, initHistory);
@@ -52,6 +59,18 @@ export default function App() {
     setPatch([]);
     setRestoreInfo(null);
     setStage('merge');
+  };
+
+  // 变更交叉分析：解析成功后进入分析视图，仅展示影响矩阵，不改变合并会话状态
+  const handleAnalyze = (base: JsonValue, ours: JsonValue, theirs: JsonValue) => {
+    setAnalysisDocs({ base, ours, theirs });
+    setStage('analysis');
+  };
+
+  // 从分析结果继续进入现有合并流程（与「开始合并」完全相同的初始化）
+  const handleAnalyzeProceed = () => {
+    if (!analysisDocs) return;
+    handleMerge(analysisDocs.base, analysisDocs.ours, analysisDocs.theirs);
   };
 
   // 导入会话快照：用快照中的三份源 JSON 重新执行三方合并，再按指针 + 三方值恢复选择。
@@ -111,6 +130,7 @@ export default function App() {
     setStage('input');
     setMergeResult(null);
     setBaseDoc(null);
+    setAnalysisDocs(null);
     dispatchHistory({ type: 'reset', present: {} });
     setMerged(null);
     setPatch([]);
@@ -128,7 +148,9 @@ export default function App() {
       <header className="app-header">
         <h1>JSON 三方合并台</h1>
         <div className="steps">
-          <span className={`step ${stage === 'input' ? 'active' : 'done'}`}>1 输入</span>
+          <span className={`step ${stage === 'input' || stage === 'analysis' ? 'active' : 'done'}`}>
+            1 输入
+          </span>
           <span className={`step ${stage === 'merge' ? 'active' : stage === 'output' ? 'done' : ''}`}>
             2 解决冲突
           </span>
@@ -136,7 +158,22 @@ export default function App() {
         </div>
       </header>
       <main>
-        {stage === 'input' && <InputStage onMerge={handleMerge} onImportSnapshot={handleImportSnapshot} />}
+        {stage === 'input' && (
+          <InputStage
+            onMerge={handleMerge}
+            onAnalyze={handleAnalyze}
+            onImportSnapshot={handleImportSnapshot}
+          />
+        )}
+        {stage === 'analysis' && analysisDocs && (
+          <AnalysisStage
+            base={analysisDocs.base}
+            ours={analysisDocs.ours}
+            theirs={analysisDocs.theirs}
+            onProceedMerge={handleAnalyzeProceed}
+            onBack={() => setStage('input')}
+          />
+        )}
         {stage === 'merge' && mergeResult && (
           <MergeStage
             mergeResult={mergeResult}

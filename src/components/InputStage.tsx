@@ -13,6 +13,8 @@ import {
 
 interface Props {
   onMerge: (base: JsonValue, ours: JsonValue, theirs: JsonValue) => void;
+  /** 变更交叉分析：解析成功后进入分析视图（不直接开始合并） */
+  onAnalyze: (base: JsonValue, ours: JsonValue, theirs: JsonValue) => void;
   onImportSnapshot: (snapshot: SessionSnapshot) => void;
 }
 
@@ -53,7 +55,7 @@ function formatFailure(side: 'ours' | 'theirs', failure: PatchFailure): string {
     : `${SIDE_LABEL[side]}第 ${failure.opIndex} 个操作失败：${failure.reason}`;
 }
 
-export default function InputStage({ onMerge, onImportSnapshot }: Props) {
+export default function InputStage({ onMerge, onAnalyze, onImportSnapshot }: Props) {
   const [mode, setMode] = useState<Mode>('documents');
   const [texts, setTexts] = useState<Record<Field, string>>({ base: '', ours: '', theirs: '' });
   const [errors, setErrors] = useState<Record<Field, string | null>>({ ...EMPTY_ERRORS });
@@ -77,7 +79,8 @@ export default function InputStage({ onMerge, onImportSnapshot }: Props) {
     setPatchErrors((e) => ({ ...e, [field]: null }));
   };
 
-  const handleStartDocuments = () => {
+  /** 三份文档模式：解析三份 JSON，失败时就地报错并返回 null */
+  const parseDocuments = (): { base: JsonValue; ours: JsonValue; theirs: JsonValue } | null => {
     const parsed: Partial<Record<Field, JsonValue>> = {};
     const newErrors: Record<Field, string | null> = { ...EMPTY_ERRORS };
     let ok = true;
@@ -90,14 +93,11 @@ export default function InputStage({ onMerge, onImportSnapshot }: Props) {
       }
     }
     setErrors(newErrors);
-    if (ok) {
-      setSnapshotError(null);
-      onMerge(parsed.base!, parsed.ours!, parsed.theirs!);
-    }
+    return ok ? { base: parsed.base!, ours: parsed.ours!, theirs: parsed.theirs! } : null;
   };
 
-  // 补丁模式：两份补丁分别应用到同一基线的独立副本；任一操作失败即阻止进入合并，输入保持不变
-  const handleStartPatch = () => {
+  // 补丁模式：两份补丁分别应用到同一基线的独立副本；任一操作失败即返回 null，输入保持不变
+  const parsePatch = (): { base: JsonValue; ours: JsonValue; theirs: JsonValue } | null => {
     const newErrors: Record<Field, string | null> = { ...EMPTY_ERRORS };
 
     let base: JsonValue | null = null;
@@ -124,11 +124,24 @@ export default function InputStage({ onMerge, onImportSnapshot }: Props) {
     }
 
     setPatchErrors(newErrors);
-    if (base !== null && docs.ours !== undefined && docs.theirs !== undefined) {
+    return base !== null && docs.ours !== undefined && docs.theirs !== undefined
+      ? { base, ours: docs.ours, theirs: docs.theirs }
+      : null;
+  };
+
+  /** 按当前模式解析输入，成功时回调三份文档 */
+  const withParsedDocs = (
+    action: (base: JsonValue, ours: JsonValue, theirs: JsonValue) => void,
+  ) => {
+    const docs = mode === 'documents' ? parseDocuments() : parsePatch();
+    if (docs) {
       setSnapshotError(null);
-      onMerge(base, docs.ours, docs.theirs);
+      action(docs.base, docs.ours, docs.theirs);
     }
   };
+
+  const handleStart = () => withParsedDocs(onMerge);
+  const handleAnalyze = () => withParsedDocs(onAnalyze);
 
   const loadSample = () => {
     if (mode === 'documents') {
@@ -203,11 +216,10 @@ export default function InputStage({ onMerge, onImportSnapshot }: Props) {
           }}
         />
         <div className="spacer" />
-        <button
-          className="primary"
-          onClick={mode === 'documents' ? handleStartDocuments : handleStartPatch}
-          disabled={!canStart}
-        >
+        <button onClick={handleAnalyze} disabled={!canStart} title="基于三份输入计算两侧变更的交叉影响矩阵">
+          变更交叉分析
+        </button>
+        <button className="primary" onClick={handleStart} disabled={!canStart}>
           开始合并 →
         </button>
       </div>

@@ -31,14 +31,16 @@ function setup() {
   document.body.appendChild(container);
   const root = createRoot(container);
   const merges: MergeCall[] = [];
+  const analyses: MergeCall[] = [];
   const render = (node: ReactElement) => act(() => root.render(node));
   render(
     <InputStage
       onMerge={(base, ours, theirs) => merges.push({ base, ours, theirs })}
+      onAnalyze={(base, ours, theirs) => analyses.push({ base, ours, theirs })}
       onImportSnapshot={() => {}}
     />,
   );
-  return { container, merges };
+  return { container, merges, analyses };
 }
 
 /** 依次在三个面板中输入内容 */
@@ -143,5 +145,34 @@ describe('InputStage RFC 6902 补丁模式', () => {
     // 再切回补丁模式：补丁输入仍在
     switchToPatch(container);
     expect(textareaOf(panels(container)[1]).value).toBe(OURS_PATCH);
+  });
+});
+
+describe('InputStage 变更交叉分析入口', () => {
+  it('三份文档模式：解析成功进入分析且不触发合并；解析失败就地报错', () => {
+    const { container, merges, analyses } = setup();
+    fillPanels(container, ['{bad', '{"x":1}', '{"x":2}']);
+    act(() => btnByText(container, '变更交叉分析')!.click());
+    expect(analyses).toHaveLength(0);
+    expect(merges).toHaveLength(0);
+    expect(container.textContent).toContain('JSON 解析失败');
+
+    fillPanels(container, ['{"x":0}', '{"x":1}', '{"x":2}']);
+    act(() => btnByText(container, '变更交叉分析')!.click());
+    expect(analyses).toEqual([{ base: { x: 0 }, ours: { x: 1 }, theirs: { x: 2 } }]);
+    expect(merges).toHaveLength(0);
+  });
+
+  it('补丁模式：补丁应用成功后以应用结果进入分析', () => {
+    const { container, merges, analyses } = setup();
+    act(() => btnByText(container, 'RFC 6902 补丁')!.click());
+    fillPanels(container, [BASE, OURS_PATCH, THEIRS_PATCH]);
+    act(() => btnByText(container, '变更交叉分析')!.click());
+
+    expect(merges).toHaveLength(0);
+    expect(analyses).toHaveLength(1);
+    expect(analyses[0].base).toEqual({ a: 1, list: [1, 2] });
+    expect(analyses[0].ours).toEqual({ a: 10, list: [1, 2, 3] });
+    expect(analyses[0].theirs).toEqual({ a: 1, b: 1, items: [1, 2] });
   });
 });
