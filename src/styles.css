@@ -235,6 +235,382 @@ pre {
   margin-top: 10px;
 }
 
+/* ---------- 变更交叉分析 ---------- */
+.cross-panel {
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px;
+  flex: 1;
+  min-height: 0;
+}
+
+.cross-header {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+
+.cross-header h3 {
+  margin: 0;
+  font-size: 15px;
+}
+
+.cross-header .hint {
+  color: var(--text-dim);
+  font-size: 12px;
+}
+
+.cross-summary {
+  font-size: 13px;
+  color: var(--text-dim);
+  margin-bottom: 10px;
+}
+
+.cross-summary strong {
+  color: var(--text);
+}
+
+.cross-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.cross-chip {
+  border-radius: 999px;
+  font-size: 12px;
+}
+
+.cross-chip:disabled {
+  opacity: 0.4;
+}
+
+.cross-chip.active {
+  color: #fff;
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.cross-chip.ours-only.active {
+  color: #fff;
+  background: #2f6fdd;
+  border-color: #2f6fdd;
+}
+
+.cross-chip.theirs-only.active {
+  color: #fff;
+  background: #7a4fe0;
+  border-color: #7a4fe0;
+}
+
+.cross-chip.both-agree.active {
+  color: #06281f;
+  background: var(--teal);
+  border-color: var(--teal);
+}
+
+.cross-chip.same-path-conflict.active {
+  color: #fff;
+  background: var(--red);
+  border-color: var(--red);
+}
+
+.cross-chip.cross-ancestor-conflict.active {
+  color: #06281f;
+  background: var(--yellow);
+  border-color: var(--yellow);
+}
+
+.cross-conflict-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  color: var(--text-dim);
+  cursor: pointer;
+  margin-left: 4px;
+}
+
+.cross-conflict-pointers {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  font-size: 12.5px;
+  color: var(--text-dim);
+  margin-bottom: 10px;
+}
+
+.cross-conflict-pointers .hit-pointer {
+  cursor: pointer;
+}
+
+.cross-matrix {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+  min-height: 120px;
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 6px;
+}
+
+.cross-empty {
+  color: var(--text-dim);
+  font-size: 13px;
+  text-align: center;
+  padding: 18px 0;
+}
+
+button.cross-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  text-align: left;
+  padding: 5px 10px;
+  background: var(--bg-panel-2);
+  border: 1px solid transparent;
+  border-radius: 6px;
+}
+
+button.cross-row:hover {
+  border-color: var(--accent);
+}
+
+button.cross-row.selected {
+  border-color: var(--yellow);
+  background: rgba(232, 179, 57, 0.1);
+}
+
+.cross-path {
+  font-family: 'JetBrains Mono', Consolas, monospace;
+  font-size: 12.5px;
+  color: #9ecbff;
+  word-break: break-all;
+  min-width: 0;
+}
+
+.cross-sides {
+  display: flex;
+  gap: 6px;
+}
+
+.cross-badge {
+  font-size: 11px;
+  border-radius: 4px;
+  padding: 1px 7px;
+  white-space: nowrap;
+  color: var(--text-dim);
+  background: #232c42;
+}
+
+.cross-badge.none {
+  background: transparent;
+  color: var(--text-dim);
+}
+
+.cross-badge.add {
+  color: #06281f;
+  background: var(--green);
+}
+
+.cross-badge.remove {
+  color: #fff;
+  background: var(--red);
+}
+
+.cross-badge.replace {
+  color: #06281f;
+  background: var(--yellow);
+}
+
+.cross-impact {
+  flex-shrink: 0;
+  font-size: 11px;
+  border-radius: 999px;
+  padding: 1px 8px;
+  white-space: nowrap;
+}
+
+.cross-impact.ours-only {
+  color: #fff;
+  background: #2f6fdd;
+}
+
+.cross-impact.theirs-only {
+  color: #fff;
+  background: #7a4fe0;
+}
+
+.cross-impact.both-agree {
+  color: #06281f;
+  background: var(--teal);
+}
+
+.cross-impact.same-path-conflict {
+  color: #fff;
+  background: var(--red);
+}
+
+.cross-impact.cross-ancestor-conflict {
+  color: #06281f;
+  background: var(--yellow);
+}
+
+.cross-descendant-mark {
+  margin-right: 6px;
+  font-weight: 700;
+}
+
+.cross-row.same-path-conflict .cross-path,
+.cross-row.cross-ancestor-conflict .cross-path {
+  color: var(--red);
+}
+
+.cross-row.cross-ancestor-conflict .cross-path {
+  color: #f4cd6a;
+}
+
+.cross-detail {
+  margin-top: 10px;
+  border: 1px solid var(--yellow);
+  border-radius: 8px;
+  padding: 10px 12px;
+  background: rgba(232, 179, 57, 0.06);
+  flex-shrink: 0;
+}
+
+.cross-detail-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+
+.cross-detail-pointer {
+  font-family: 'JetBrains Mono', Consolas, monospace;
+  font-size: 13px;
+  color: var(--yellow);
+  word-break: break-all;
+}
+
+.cross-impact-tag {
+  flex-shrink: 0;
+  font-size: 11px;
+  border-radius: 999px;
+  padding: 1px 8px;
+  white-space: nowrap;
+}
+
+.cross-impact-tag.ours-only {
+  color: #fff;
+  background: #2f6fdd;
+}
+
+.cross-impact-tag.theirs-only {
+  color: #fff;
+  background: #7a4fe0;
+}
+
+.cross-impact-tag.both-agree {
+  color: #06281f;
+  background: var(--teal);
+}
+
+.cross-impact-tag.same-path-conflict {
+  color: #fff;
+  background: var(--red);
+}
+
+.cross-impact-tag.cross-ancestor-conflict {
+  color: #06281f;
+  background: var(--yellow);
+}
+
+.cross-ancestor-note {
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.cross-ancestor-note code {
+  font-family: 'JetBrains Mono', Consolas, monospace;
+  color: var(--yellow);
+  font-size: 12px;
+}
+
+.cross-values {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.cross-side h4 {
+  margin: 0 0 6px;
+  font-size: 12px;
+  color: var(--text-dim);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.cross-side .cross-kind {
+  font-size: 10px;
+  border-radius: 4px;
+  padding: 0 5px;
+  color: #06281f;
+  background: var(--yellow);
+}
+
+.cross-side .cross-kind.add {
+  background: var(--green);
+}
+
+.cross-side .cross-kind.remove {
+  color: #fff;
+  background: var(--red);
+}
+
+.cross-side pre {
+  min-height: 0;
+  max-height: 220px;
+  font-size: 12px;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.cross-side pre.dim {
+  color: var(--text-dim);
+  border-style: dashed;
+}
+
+.cross-nochange {
+  font-size: 12px;
+  color: var(--text-dim);
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+  padding: 8px 10px;
+}
+
+.cross-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 14px;
+  flex-shrink: 0;
+}
+
 /* ---------- 合并阶段 ---------- */
 .merge-layout {
   display: grid;

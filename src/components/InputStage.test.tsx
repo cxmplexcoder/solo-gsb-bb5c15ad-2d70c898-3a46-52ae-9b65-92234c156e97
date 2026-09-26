@@ -145,3 +145,121 @@ describe('InputStage RFC 6902 补丁模式', () => {
     expect(textareaOf(panels(container)[1]).value).toBe(OURS_PATCH);
   });
 });
+
+describe('InputStage 变更交叉分析入口', () => {
+  const crossPanel = (container: HTMLElement) =>
+    container.querySelector('.cross-panel') as HTMLElement | null;
+  const crossRows = (panel: HTMLElement) => all(panel, '.cross-row') as HTMLElement[];
+
+  it('点击「变更交叉分析」展示影响矩阵而不触发 onMerge', () => {
+    const { container, merges } = setup();
+    // /o 仅当前改、/t 仅目标改、/same 双方改成相同值、/conflict 双方改成不同值
+    fillPanels(container, [
+      '{ "o": 1, "t": 1, "same": 1, "conflict": 1 }',
+      '{ "o": 2, "t": 1, "same": 9, "conflict": 2 }',
+      '{ "o": 1, "t": 3, "same": 9, "conflict": 3 }',
+    ]);
+    act(() => btnByText(container, '变更交叉分析')!.click());
+
+    expect(merges).toHaveLength(0);
+    const panel = crossPanel(container)!;
+    expect(panel).toBeTruthy();
+    expect(panel.textContent).toContain('共 4 条变更路径');
+    expect(panel.textContent).toContain('可自动合并 3 条');
+    expect(panel.textContent).toContain('冲突节点 1 个');
+    const rows = crossRows(panel);
+    const rowPointers = rows.map((r) => r.querySelector('.cross-path')?.textContent);
+    expect(rowPointers).toEqual(['/conflict', '/o', '/same', '/t']);
+    expect(rows[0].className).toContain('same-path-conflict');
+  });
+
+  it('点击矩阵路径展示该路径的基线 / 当前 / 目标三方值', () => {
+    const { container } = setup();
+    fillPanels(container, ['{ "a": 1 }', '{ "a": 2 }', '{ "a": 3 }']);
+    act(() => btnByText(container, '变更交叉分析')!.click());
+
+    const panel = crossPanel(container)!;
+    act(() => crossRows(panel)[0].click());
+    const detail = panel.querySelector('.cross-detail')!;
+    expect(detail).toBeTruthy();
+    const valuePres = all(detail as HTMLElement, '.cross-side pre').map((p) => p.textContent);
+    expect(valuePres).toEqual(['1', '2', '3']);
+  });
+
+  it('按影响类型筛选矩阵；「仅看冲突」只留冲突行', () => {
+    const { container } = setup();
+    fillPanels(container, [
+      '{ "o": 1, "c": 1 }',
+      '{ "o": 2, "c": 2 }',
+      '{ "o": 1, "c": 3 }',
+    ]);
+    act(() => btnByText(container, '变更交叉分析')!.click());
+    const panel = crossPanel(container)!;
+
+    // 只勾选「仅当前分支」
+    act(() => btnByText(panel, '仅当前分支（1）')!.click());
+    expect(crossRows(panel).map((r) => r.querySelector('.cross-path')?.textContent)).toEqual(['/o']);
+    act(() => btnByText(panel, '仅当前分支（1）')!.click());
+
+    // 「仅看冲突」
+    act(() => {
+      (panel.querySelector('.cross-conflict-toggle input') as HTMLInputElement).click();
+    });
+    expect(crossRows(panel).map((r) => r.querySelector('.cross-path')?.textContent)).toEqual(['/c']);
+  });
+
+  it('祖先整体删除 × 后代修改：祖先与后代同组展示，冲突根只计祖先', () => {
+    const { container } = setup();
+    fillPanels(container, [
+      '{ "cfg": { "a": 1, "b": 2 } }',
+      '{}',
+      '{ "cfg": { "a": 99, "b": 2 } }',
+    ]);
+    act(() => btnByText(container, '变更交叉分析')!.click());
+    const panel = crossPanel(container)!;
+
+    expect(panel.textContent).toContain('共 2 条变更路径');
+    expect(panel.textContent).toContain('冲突节点 1 个');
+    const conflictChips = all(panel, '.cross-conflict-pointers .hit-pointer');
+    expect(conflictChips.map((c) => c.textContent)).toEqual(['/cfg']);
+
+    // 后代条目标注受对侧祖先影响
+    const descendant = crossRows(panel).find(
+      (r) => r.querySelector('.cross-path')?.textContent === '/cfg/a',
+    )!;
+    expect(descendant.className).toContain('cross-ancestor-conflict');
+    expect(descendant.textContent).toContain('↳ 后代');
+    act(() => descendant.click());
+    expect(panel.querySelector('.cross-detail')?.textContent).toContain('/cfg');
+  });
+
+  it('从分析结果「返回编辑输入」保留三份内容，可再次分析', () => {
+    const { container } = setup();
+    fillPanels(container, ['{ "a": 1 }', '{ "a": 2 }', '{ "a": 1 }']);
+    act(() => btnByText(container, '变更交叉分析')!.click());
+    act(() => btnByText(crossPanel(container)!, '返回编辑输入')!.click());
+
+    expect(crossPanel(container)).toBeNull();
+    expect(textareaOf(panels(container)[0])).toBeTruthy();
+    expect(textareaOf(panels(container)[1]).value).toBe('{ "a": 2 }');
+    act(() => btnByText(container, '变更交叉分析')!.click());
+    expect(crossPanel(container)).toBeTruthy();
+  });
+
+  it('从分析结果「开始合并」进入现有合并流程（onMerge 收到三份文档）', () => {
+    const { container, merges } = setup();
+    fillPanels(container, ['{ "a": 1 }', '{ "a": 2 }', '{ "a": 1 }']);
+    act(() => btnByText(container, '变更交叉分析')!.click());
+    expect(merges).toHaveLength(0);
+    act(() => btnByText(crossPanel(container)!, '开始合并')!.click());
+    expect(merges).toEqual([{ base: { a: 1 }, ours: { a: 2 }, theirs: { a: 1 } }]);
+  });
+
+  it('解析失败时阻止进入分析并就地报错', () => {
+    const { container } = setup();
+    fillPanels(container, ['{bad', '{"x":1}', '{"x":2}']);
+    act(() => btnByText(container, '变更交叉分析')!.click());
+    expect(crossPanel(container)).toBeNull();
+    expect(container.textContent).toContain('JSON 解析失败');
+  });
+});
